@@ -104,18 +104,26 @@ class GameSpace:
 
 	def detectCollisions(self):		
 		for i in range(0,len(self.players)-1):
+			if (self.players[i].health <= 0): #skip dead players
+				continue
 			for j in range(i+1,len(self.players)):
+				if (self.players[j].health <= 0): #skip dead players
+					continue
 				distance = self.getDistanceDifference(self.players[i],self.players[j])
 				if (distance < 75): # maximum distance difference that could be collision
 					totalspeed = abs(float(self.players[i].speed + self.players[j].speed))
-					
+				
 					if (totalspeed > 2 and self.players[i].hit == 0 and self.players[j].hit == 0):
 						self.players[i].hit = 1
 						self.players[j].hit = 1
-					
-						self.players[i].collisionangle = (float(self.players[j].speed) / totalspeed) * self.players[j].angle + (float(self.players[i].speed) / totalspeed) * self.players[i].angle
-						self.players[j].collisionangle = 360 - (float(self.players[j].speed) / totalspeed) * self.players[j].angle + (float(self.players[i].speed) / totalspeed) * self.players[i].angle
 
+						if (self.players[i].speed > self.players[j].speed):
+							self.players[i].collisionangle = self.getAngleOfImpact(self.players[i],self.players[j])
+							self.players[j].collisionangle = 360 - self.getAngleOfImpact(self.players[i],self.players[j])
+						else:
+							self.players[i].collisionangle = 360 - self.getAngleOfImpact(self.players[i],self.players[j])
+							self.players[j].collisionangle = self.getAngleOfImpact(self.players[i],self.players[j])
+	
 						self.players[i].health = self.players[i].health - max(1,abs(self.players[j].speed))
 						self.players[j].health = self.players[j].health - max(1,abs(self.players[i].speed))
 
@@ -123,9 +131,7 @@ class GameSpace:
 						self.players[j].speed = 0.5 * totalspeed
 
 						closerdistance = 75 - distance
-					angledifference = self.getAngleDifference(self.players[i],self.players[j])
-					impactangle = self.getAngleOfImpact(self.players[i],self.players[j])
-					print angledifference, impactangle
+						print self.getAngleOfImpact(self.players[i],self.players[j])
 
 					
 
@@ -194,15 +200,19 @@ class GameSpace:
 			#draw background
 			#draw players
 			for player in self.players:
-				self.screen.blit(player.image, player.rect)
-				healthborder = Rect(player.x - 50, player.y - 50, 100, 10)
-				healthpct = float(player.health) / player.maxhealth
-				healthrect = Rect(player.x - 48, player.y - 48, healthpct * 97, 7)
-				pygame.draw.rect(self.screen,(255,255,255), healthborder, 2)
-				if (healthpct < 0.20):
-					pygame.draw.rect(self.screen,(255,0,0), healthrect, 0)
-				else:
-					pygame.draw.rect(self.screen,(0,255,0), healthrect, 0)
+				if (player.health > 0):
+					self.screen.blit(player.image, player.rect)
+					healthpct = float(player.health) / player.maxhealth
+					healthrect = Rect(player.x - 48, player.y - 48, healthpct * 97, 7)
+					healthborder = Rect(player.x - 50, player.y - 50, 100, 10)
+					if self.playernumber == player.number:
+						pygame.draw.rect(self.screen,(255,255,255), healthborder, 2)
+					else:
+						pygame.draw.rect(self.screen,(0,0,255), healthborder, 2)
+					if (healthpct < 0.20):
+						pygame.draw.rect(self.screen,(255,0,0), healthrect, 0)
+					else:
+						pygame.draw.rect(self.screen,(0,255,0), healthrect, 0)
 			#draw powerups
 			#draw etc
 			pygame.display.flip()
