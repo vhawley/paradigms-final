@@ -72,7 +72,6 @@ class GameSpace:
 
 			# 5) handle user input events
 			for event in pygame.event.get():
-				print "test"
 				# send relevant player inputs to server for processing
 				if (event.type == KEYDOWN) or (event.type == KEYUP):
 					if (event.key in self.trackedinputs):
@@ -88,23 +87,23 @@ class GameSpace:
 
 			# 6) ongoing behavior
 			for player in self.players:
-				print "test2"
 				player.tick()
 
 			self.screen.fill(self.black)
 			for player in self.players:
-				self.screen.blit(player.image, player.rect)
-				healthpct = float(player.health) / player.maxhealth
-				healthrect = Rect(player.x - 48, player.y - 48, healthpct * 97, 7)
-				healthborder = Rect(player.x - 50, player.y - 50, 100, 10)
-				if self.playernumber == player.number:
-					pygame.draw.rect(self.screen,(255,255,255), healthborder, 2)
-				else:
-					pygame.draw.rect(self.screen,(0,0,255), healthborder, 2)
-				if (healthpct < 0.20):
-					pygame.draw.rect(self.screen,(255,0,0), healthrect, 0)
-				else:
-					pygame.draw.rect(self.screen,(0,255,0), healthrect, 0)
+				if (player.health > 0):
+					self.screen.blit(player.image, player.rect)
+					healthpct = float(player.health) / player.maxhealth
+					healthrect = Rect(player.x - 48, player.y - 48, healthpct * 97, 7)
+					healthborder = Rect(player.x - 50, player.y - 50, 100, 10)
+					if self.playernumber == player.number:
+						pygame.draw.rect(self.screen,(255,255,255), healthborder, 2)
+					else:
+						pygame.draw.rect(self.screen,(0,0,255), healthborder, 2)
+					if (healthpct < 0.20):
+						pygame.draw.rect(self.screen,(255,0,0), healthrect, 0)
+					else:
+						pygame.draw.rect(self.screen,(0,255,0), healthrect, 0)
 			pygame.display.flip()
 
 ##################################################
@@ -118,6 +117,8 @@ class BumperClient(LineReceiver):
 		line = line.strip()
 		if (self.state == "WAITING"):
 			self.playernumber = int(line)
+			if self.playernumber == -1:
+				sys.exit("Game full. Exiting...")
 			self.state = "READY"
 			self.gs = GameSpace(self, self.playernumber)
 		elif (self.state == "READY" and line == "START"):
@@ -125,8 +126,10 @@ class BumperClient(LineReceiver):
 			self.state = "PLAYING"
 		elif (self.state == "PLAYING"):
 			line = line.strip().split(',')
+			print line
 			if line[0] == "PLAYER":
-				if (len(self.gs.players) >= int(line[1])):
+
+				if (len(self.gs.players) <= int(line[1])):
 					self.gs.players.append(Player(self.gs, int(line[1]), float(line[2]), float(line[3]), float(line[4])))
 				else:
 					self.gs.players[int(line[1])].x = float(line[2])
@@ -145,7 +148,7 @@ class BumperClientFactory(ClientFactory):
 
 myfactory = BumperClientFactory()
 
-reactor.connectTCP('localhost', 26482, myfactory)
+reactor.connectTCP('localhost', 40077, myfactory)
 
 reactor.run()
 

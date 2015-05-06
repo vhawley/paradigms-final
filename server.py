@@ -35,12 +35,8 @@ class Player(pygame.sprite.Sprite):
 			deltay = self.speed * sin(radians(self.collisionangle))
 			if (not (self.x + deltax > self.gs.width - 20 or self.x + deltax < 20)):
 				self.x = self.x + deltax
-				if (self.gs.debug == 0):
-					self.rect = self.rect.move(deltax, 0)
 			if (not (self.y + deltay > self.gs.height - 20 or self.y + deltay < 20)):
 				self.y = self.y + deltay
-				if (self.gs.debug == 0):			
-					self.rect = self.rect.move(0, deltay)
 
 		else:
 			if (self.gs.keysheld[self.number][K_UP] == 1): #accelerate forward
@@ -60,15 +56,15 @@ class Player(pygame.sprite.Sprite):
 					self.speed = max(self.speed - 0.75 * float(self.acceleration) / float(self.gs.tickrate), 0)
 			if (self.gs.keysheld[self.number][K_LEFT] == 1): #turn left
 				if (self.speed >= 0):
-					self.angle = (self.angle + 2) % 360
+					self.angle = (self.angle + 3) % 360
 				else:
-					self.angle = (self.angle - 2) % 360
+					self.angle = (self.angle - 3) % 360
 			
 			if (self.gs.keysheld[self.number][K_RIGHT] == 1): #turn right
 				if (self.speed >= 0):
-					self.angle = (self.angle - 2) % 360
+					self.angle = (self.angle - 3) % 360
 				else:
-					self.angle = (self.angle + 2) % 360
+					self.angle = (self.angle + 3) % 360
 
 			deltax = self.speed * -1 * cos(radians(self.angle))
 			deltay = self.speed * sin(radians(self.angle))
@@ -95,17 +91,21 @@ class GameSpace:
 	def getAngleOfImpact(self, p1, p2): # returns angle of straight line between two cars (in degrees)
 		return degrees(atan2(p1.y-p2.y, p1.x-p2.x))
 
-	def detectCollisions(self):		
+	def detectCollisions(self):
 		for i in range(0,len(self.players)-1):
+			if (self.players[i].health <= 0):
+				continue
 			for j in range(i+1,len(self.players)):
+				if (self.players[j].health <= 0):
+					continue
 				distance = self.getDistanceDifference(self.players[i],self.players[j])
 				if (distance < 75): # maximum distance difference that could be collision
 					totalspeed = abs(float(self.players[i].speed + self.players[j].speed))
-					
+				
 					if (totalspeed > 2 and self.players[i].hit == 0 and self.players[j].hit == 0):
 						self.players[i].hit = 1
 						self.players[j].hit = 1
-					
+				
 						if (self.players[i].speed > self.players[j].speed):
 							self.players[i].collisionangle = self.getAngleOfImpact(self.players[i],self.players[j])
 							self.players[j].collisionangle = 360 - self.getAngleOfImpact(self.players[i],self.players[j])
@@ -117,14 +117,7 @@ class GameSpace:
 
 						self.players[i].speed = 0.5 * totalspeed
 						self.players[j].speed = 0.5 * totalspeed
-
-						closerdistance = 75 - distance
-					angledifference = self.getAngleDifference(self.players[i],self.players[j])
-					impactangle = self.getAngleOfImpact(self.players[i],self.players[j])
-
-
-					
-
+				
 	def main(self):
 		# 1) basic init
 		pygame.init()
@@ -142,7 +135,6 @@ class GameSpace:
 		
 
 		#get playernumber from server after connecting
-
 		self.keysheld = list()
 		for player in self.players:
 			self.keysheld.append(dict())
@@ -163,7 +155,7 @@ class GameSpace:
 			for player in self.players:
 				player.tick()
 			self.detectCollisions()
-
+				
 
 			for player in self.players:
 				for client in self.factory.clients:
@@ -201,9 +193,9 @@ class GameLineReceiver(LineReceiver):
         ## data received is used for creating a new player in the game
         ## set name
         if (len(self.gs.players) == 0):
-        	self.gs.players.append(Player(self.gs, len(self.gs.players), len(self.gs.players) / 8 * 700, 300, 270))
+        	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
         elif (len(self.gs.players) >= 1):
-        	self.gs.players.append(Player(self.gs, len(self.gs.players), len(self.gs.players) / 8 * 700, 300, 270))
+        	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
         	self.state = "PLAY"
         	thread.start_new_thread(self.gs.main, ())
         self.sendLine(str(len(self.gs.players) - 1))
@@ -213,10 +205,11 @@ class GameLineReceiver(LineReceiver):
 
     def handle_PLAY(self):
     	if (len(self.gs.players) >= 0 and len(self.gs.players) < 8):
-        	self.gs.players.append(Player(self.gs, len(self.gs.players), len(self.gs.players) / 8 * 700, 300, 270))
+        	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
         	self.sendLine(str(len(self.gs.players) - 1))
         else:
-		self.sendLine("-1") #cannot join game... full
+		self.sendLine("-1")
+		self.sendLine(str(len(self.gs.players) - 1))
 
 class GameFactory(Factory):
     def __init__(self):
@@ -227,6 +220,6 @@ class GameFactory(Factory):
 	self.clients.append(GameLineReceiver(self, self.gs))
         return self.clients[len(self.clients)-1]
 
-reactor.listenTCP(26482, GameFactory())
+reactor.listenTCP(40077, GameFactory())
 reactor.run()
 

@@ -200,6 +200,7 @@ class GameSpace:
 			#draw background
 			#draw players
 			for player in self.players:
+				print len(self.players)
 				if (player.health > 0):
 					self.screen.blit(player.image, player.rect)
 					healthpct = float(player.health) / player.maxhealth
