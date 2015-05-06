@@ -52,11 +52,16 @@ class GameSpace:
 		self.cars = ["ambulance.png", "audi.png", "blackviper.png", "car.png", "minitruck.png", "minivan.png", "police.png", "taxi.png", "truck.png"]
 		self.powerupimages = ["doubledamage.png", "health.png", "invuln.png", "speed.png"]
 		self.powerups = list()
+		self.gameover = 0
+		self.winner = 0
 		
 	def main(self):
 		# 1) basic init
 		pygame.init()
 		pygame.mixer.init()
+		self.sounds = list()
+		for i in range(1,5):
+			self.sounds.append(pygame.mixer.Sound("sound/crash" + str(i) + ".wav"))
 		self.debug = 0
 		self.size = self.width, self.height = 1024, 768
 
@@ -73,10 +78,10 @@ class GameSpace:
 	
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
-
+		
 
 		# 3) start game loop
-		while 1:
+		while self.gameover == 0:
 			# 4) regulate tick speed
 			self.clock.tick(self.tickrate)
 
@@ -117,6 +122,22 @@ class GameSpace:
 				self.screen.blit(powerup.image, powerup.rect)
 
 			pygame.display.flip()
+		
+		self.screen.fill(self.black)
+		font = pygame.font.Font(None,36)
+		if (self.winner == 1):
+			endGameText = font.render("You won!", 1 , (255,255,255))
+		else:
+			endGameText = font.render("You lose!", 1 , (255,255,255))
+		textrect = endGameText.get_rect()
+		textrect.centerx = self.width / 2
+		textrect.centery = self.height / 2
+		self.screen.blit(endGameText, textrect)
+		pygame.display.flip()
+		while 1:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					sys.exit()
 
 ##################################################
 
@@ -149,10 +170,19 @@ class BumperClient(LineReceiver):
 				self.gs.players[int(line[1])].health = float(line[5])
 				self.gs.players[int(line[1])].maxhealth = float(line[6])
 			elif line[0] == "POWERUP":
-				if line[1] == "NONE":
-					self.gs.powerups = []
+				print line
+				if line[1] == "START":
+					self.gs.powerups = list()
 				else:
 					self.gs.powerups.append(Powerup(self.gs, int(line[1]), int(line[2]), int(line[3])))
+			elif line[0] == "SOUND":
+				self.gs.sounds[int(line[1])-1].play()
+			elif line[0] == "GAMEEND":
+				self.gs.gameover = 1
+				winner = int(line[1])
+				if winner == self.gs.playernumber:
+					self.gs.winner = 1
+					
 		else:
 			print line
 		
@@ -166,7 +196,7 @@ class BumperClientFactory(ClientFactory):
 
 myfactory = BumperClientFactory()
 
-reactor.connectTCP('localhost', 40077, myfactory)
+reactor.connectTCP('student00.cse.nd.edu', 40077, myfactory)
 
 reactor.run()
 

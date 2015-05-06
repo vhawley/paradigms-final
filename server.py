@@ -101,6 +101,7 @@ class Powerup:
 		self.number = number
 		self.x = x
 		self.y = y
+		self.visible = True
 
 class GameSpace:
 	def __init__(self, factory):
@@ -123,10 +124,18 @@ class GameSpace:
 	def detectPowerup(self):
 		for player in self.players:
 			for powerup in self.powerups:
-				if self.getDistanceDifference(player,powerup) <= 50:
-					player.powerup = powerup.number
-					player.poweruptimer = 600 #in ticks
-					self.powerups.remove(powerup)
+				if powerup.visible == True:
+					if self.getDistanceDifference(player,powerup) <= 50:
+						player.powerup = powerup.number
+						player.poweruptimer = 600 #in ticks
+						powerup.visible = False
+						
+	def numRemainingPlayers(self):
+		count = 0
+		for player in self.players:
+			if player.health > 0:
+				count = count + 1
+		return count
 
 	def detectCollisions(self):
 		for i in range(0,len(self.players)-1):
@@ -162,11 +171,15 @@ class GameSpace:
 
 						self.players[i].speed = 0.5 * totalspeed
 						self.players[j].speed = 0.5 * totalspeed
+						
+						sound = random.randint(1,4)
+						for client in self.factory.clients:
+							client.sendLine("SOUND," + str(sound))
+						
 				
 	def main(self):
 		# 1) basic init
 		pygame.init()
-		#pygame.mixer.init()
 		self.debug = 0
 		self.size = self.width, self.height = 1024, 768
 
@@ -198,6 +211,14 @@ class GameSpace:
 			# 6) ongoing behavior
 			for player in self.players:
 				player.tick()
+			if self.numRemainingPlayers() <= 1:
+				winner = -1
+				for player in self.players:
+					if player.health > 0:
+						winner = player.number
+				for client in self.factory.clients:
+					client.sendLine("GAMEEND," + str(winner))
+				break
 			self.detectPowerup()
 			self.detectCollisions()
 				
@@ -206,15 +227,14 @@ class GameSpace:
 				for client in self.factory.clients:
 					client.sendLine("PLAYER," + str(player.number) + "," + str(player.x) + "," + str(player.y) + "," + str(player.angle) + "," + str(player.health) + "," + str(player.maxhealth))
 
-			if len(self.powerups) == 0:
-				for client in self.factory.clients:
-					client.sendLine("POWERUP,NONE")
-			else:
-				for powerup in self.powerups:
+			for client in self.factory.clients:
+				client.sendLine("POWERUP,START")
+			for powerup in self.powerups:
+				if powerup.visible == True:
 					for client in self.factory.clients:
 						client.sendLine("POWERUP," + str(powerup.number) + "," + str(powerup.x) + "," + str(powerup.y))
 			self.counter = self.counter + 1
-			if (self.counter == 450):
+			if (self.counter == 750):
 				newx = 40 + random.randint(0,self.width-80)
 				newy = 40 + random.randint(0,self.height-80)
 				poweruptype = random.randint(0,len(self.powerupimages)-1)
@@ -266,7 +286,7 @@ class GameLineReceiver(LineReceiver):
 			client.sendLine("START")
 
     def handle_PLAY(self):
-    	if (len(self.gs.players) >= 0 and len(self.gs.players) < 8):
+    	if (len(self.gs.players) >= 0 and len(self.gs.players) < 4):
         	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
         	self.sendLine(str(len(self.gs.players) - 1))
         else:

@@ -1,0 +1,13 @@
+Bumper Cars w/ Twisted and PyGame
+
+To start the game, run "python server.py" on student00.cse.nd.edu and "python client.py" on at least 2 (and at most 4) machines that can access student00.cse.nd.edu.  The game is configured to run on port 40077.  When at least 2 clients are detected, the game will start.  More players can join after the game starts.  The car you control is designated by a white border around the health bar above the car.  You can accelerate by holding the up-arrow key, turn left using the left-arrow key, turn right using the right arrow key, and slow down / reverse using the down-arrow key.  Cars speed up / slow down as you would expect them in real life.  Cars can only travel within the game window's borders.  
+
+You damage other cars by simply running into them.  One of four sounds are randomly played when a collision occurs.  The damage done to each car is dependent on the speed and angle both cars are travelling at.  If a high speed head on collision occurs, naturally both cars will take significant damage.  When a collision occurs, you cannot move until the collision ends. The game continues until there is only one living car, at which point the game displays whether you won or lost.  
+
+Every 12 seconds, random powerups will spawn on the screen in random locations.  Cars can collect powerups by moving over them.  There are 4 types of powerups:
+	Health (green): Restores a portion of a cars health.  Going over 100% health is possible.
+	Invincibility (yellow): Collisions do not damage the car for 10 seconds.
+	Speed (red): Car acceleration / maximum speed is increased for 10 seconds.  
+	Double damage (blue): Any car you collide with takes two times the amount of damage.
+	
+When you die, you can continue to watch until the game ends.  From there you can quit the game.  If quitting the game using the window is too slow, you can quit the game using CTRL-C.
