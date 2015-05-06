@@ -11,6 +11,8 @@ import pygame
 from math import *
 from pygame.locals import *
 
+import random
+
 class Player(pygame.sprite.Sprite):
 	def __init__(self, gs=None, number=0, x=0, y=0, angle=0):
 		self.gs = gs
@@ -25,8 +27,26 @@ class Player(pygame.sprite.Sprite):
 		self.maxhealth = 32.0
 		self.health = self.maxhealth
 		self.hit = 0
+		self.powerup = -1
+		self.poweruptimer = 0
 
 	def tick(self):
+		#self.powerupimages = ["doubledamage.png", "health.png", "invuln.png", "speed.png"]
+		if (not self.powerup == -1):
+			if self.poweruptimer <= 0:
+				self.powerup = -1
+				self.maxspeed = 8
+				self.acceleration = 3
+			else:
+				self.poweruptimer = self.poweruptimer - 1
+				if self.powerup == 1:
+					self.health = self.health + 10.0
+					self.poweruptimer = 0
+					self.powerup = -1
+				if self.powerup == 3:
+					self.maxspeed = 14
+					self.acceleration = 5
+				
 		if (self.hit == 1):
 			self.speed = self.speed - 0.75 * float(self.acceleration) / float(self.gs.tickrate)
 			if (self.speed <= 0):
@@ -75,11 +95,20 @@ class Player(pygame.sprite.Sprite):
 				self.y = self.y + deltay
 		
 
+class Powerup:
+	def __init__(self, gs=None, number=0, x=0, y=0):
+		self.gs = gs
+		self.number = number
+		self.x = x
+		self.y = y
+
 class GameSpace:
 	def __init__(self, factory):
 		self.factory = factory
 		self.players = list()
 		self.cars = ["ambulance.png", "audi.png", "blackviper.png", "car.png", "minitruck.png", "minivan.png", "police.png", "taxi.png", "truck.png"]
+		self.powerupimages = ["doubledamage.png", "health.png", "invuln.png", "speed.png"]
+		self.powerups = list()
 
 	def getDistanceDifference(self, p1, p2): # returns distance between two player cars in pixels
 		dif = sqrt(pow(p1.x-p2.x,2) + pow(p1.y-p2.y,2))
@@ -90,6 +119,14 @@ class GameSpace:
 
 	def getAngleOfImpact(self, p1, p2): # returns angle of straight line between two cars (in degrees)
 		return degrees(atan2(p1.y-p2.y, p1.x-p2.x))
+
+	def detectPowerup(self):
+		for player in self.players:
+			for powerup in self.powerups:
+				if self.getDistanceDifference(player,powerup) <= 50:
+					player.powerup = powerup.number
+					player.poweruptimer = 600 #in ticks
+					self.powerups.remove(powerup)
 
 	def detectCollisions(self):
 		for i in range(0,len(self.players)-1):
@@ -107,13 +144,21 @@ class GameSpace:
 						self.players[j].hit = 1
 				
 						if (self.players[i].speed > self.players[j].speed):
-							self.players[i].collisionangle = self.getAngleOfImpact(self.players[i],self.players[j])
-							self.players[j].collisionangle = 360 - self.getAngleOfImpact(self.players[i],self.players[j])
+							self.players[i].collisionangle = 360 - self.players[i].angle
+							self.players[j].collisionangle = self.players[i].angle
 						else:
-							self.players[i].collisionangle = 360 - self.getAngleOfImpact(self.players[i],self.players[j])
-							self.players[j].collisionangle = self.getAngleOfImpact(self.players[i],self.players[j])
-						self.players[i].health = self.players[i].health - max(1,abs(self.players[j].speed))
-						self.players[j].health = self.players[j].health - max(1,abs(self.players[i].speed))
+							self.players[i].collisionangle = self.players[j].angle
+							self.players[j].collisionangle = 360 - self.players[j].angle
+						if (self.players[i].powerup != 2):
+							if (self.players[j].powerup == 0):
+								self.players[i].health = self.players[i].health - max(1,2 * abs(self.players[j].speed))
+							else:
+								self.players[i].health = self.players[i].health - max(1,abs(self.players[j].speed))
+						if (self.players[j].powerup != 2):
+							if (self.players[i].powerup == 0):
+								self.players[j].health = self.players[j].health - max(1,2 * abs(self.players[i].speed))
+							else:
+								self.players[j].health = self.players[j].health - max(1,2 * abs(self.players[i].speed))
 
 						self.players[i].speed = 0.5 * totalspeed
 						self.players[j].speed = 0.5 * totalspeed
@@ -123,13 +168,11 @@ class GameSpace:
 		pygame.init()
 		#pygame.mixer.init()
 		self.debug = 0
-		self.size = self.width, self.height = 800, 600
+		self.size = self.width, self.height = 1024, 768
 
 		self.black = 0, 0, 0
 
 		#self.screen = pygame.display.set_mode(self.size)
-
-		self.powerups = list()
 		
 		self.trackedinputs = [K_UP, K_DOWN, K_LEFT, K_RIGHT]
 		
@@ -141,6 +184,7 @@ class GameSpace:
 			for key in self.trackedinputs:
 				self.keysheld[player.number][key] = 0
 		self.tickrate = 60
+		self.counter = 0
 	
 		# 2) set up game objects
 		self.clock = pygame.time.Clock()
@@ -154,13 +198,29 @@ class GameSpace:
 			# 6) ongoing behavior
 			for player in self.players:
 				player.tick()
+			self.detectPowerup()
 			self.detectCollisions()
 				
-
+			
 			for player in self.players:
 				for client in self.factory.clients:
 					client.sendLine("PLAYER," + str(player.number) + "," + str(player.x) + "," + str(player.y) + "," + str(player.angle) + "," + str(player.health) + "," + str(player.maxhealth))
-			
+
+			if len(self.powerups) == 0:
+				for client in self.factory.clients:
+					client.sendLine("POWERUP,NONE")
+			else:
+				for powerup in self.powerups:
+					for client in self.factory.clients:
+						client.sendLine("POWERUP," + str(powerup.number) + "," + str(powerup.x) + "," + str(powerup.y))
+			self.counter = self.counter + 1
+			if (self.counter == 450):
+				newx = 40 + random.randint(0,self.width-80)
+				newy = 40 + random.randint(0,self.height-80)
+				poweruptype = random.randint(0,len(self.powerupimages)-1)
+				self.powerups.append(Powerup(self, poweruptype, newx, newy))
+				self.counter = 0
+				
 			# get new messages from server and update player states
 			
 
@@ -194,11 +254,13 @@ class GameLineReceiver(LineReceiver):
         ## set name
         if (len(self.gs.players) == 0):
         	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
+		self.sendLine(str(len(self.gs.players) - 1))
         elif (len(self.gs.players) >= 1):
         	self.gs.players.append(Player(self.gs, len(self.gs.players), 50 + float(len(self.gs.players)) / 8.0 * 700, 300, 270))
+		self.sendLine(str(len(self.gs.players) - 1))
         	self.state = "PLAY"
         	thread.start_new_thread(self.gs.main, ())
-        self.sendLine(str(len(self.gs.players) - 1))
+       
 	if (len(self.gs.players) >= 2):
 		for client in self.factory.clients:
 			client.sendLine("START")

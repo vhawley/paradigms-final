@@ -33,6 +33,16 @@ class Player(pygame.sprite.Sprite):
 		self.rect = self.rect.move(self.x, self.y)
 		self.rect = self.rect.move(self.rect.width / -2, self.rect.height / -2)
 
+class Powerup:
+	def __init__(self, gs=None, number=0, x=0, y=0):
+		self.gs = gs
+		self.number = number
+		self.x = x
+		self.y = y
+		self.image = pygame.image.load("powerups/" + self.gs.powerupimages[self.number])
+		self.rect = self.image.get_rect()
+		self.rect = self.rect.move(x, y)
+		self.rect = self.rect.move(self.rect.width / -2, self.rect.height / -2)
 
 class GameSpace:
 	def __init__(self, lr, number):
@@ -40,20 +50,20 @@ class GameSpace:
 		self.lr = lr
 		self.playernumber = number
 		self.cars = ["ambulance.png", "audi.png", "blackviper.png", "car.png", "minitruck.png", "minivan.png", "police.png", "taxi.png", "truck.png"]
-
+		self.powerupimages = ["doubledamage.png", "health.png", "invuln.png", "speed.png"]
+		self.powerups = list()
+		
 	def main(self):
 		# 1) basic init
 		pygame.init()
 		pygame.mixer.init()
 		self.debug = 0
-		self.size = self.width, self.height = 800, 600
+		self.size = self.width, self.height = 1024, 768
 
 		self.black = 0, 0, 0
 
 		self.screen = pygame.display.set_mode(self.size)
 
-		self.powerups = list()
-		
 		self.trackedinputs = [K_UP, K_DOWN, K_LEFT, K_RIGHT]
 
 		self.keysheld = {}
@@ -76,7 +86,6 @@ class GameSpace:
 				if (event.type == KEYDOWN) or (event.type == KEYUP):
 					if (event.key in self.trackedinputs):
 						# only relevant inputs need to be sent to server
-						print "INPUT," + str(self.playernumber) + "," + str(event.type) + "," + str(event.key)
 						self.lr.sendLine("INPUT," + str(self.playernumber) + "," + str(event.type) + "," + str(event.key))
 						if (event.type == KEYDOWN):
 							self.keysheld[event.key] = 1
@@ -104,6 +113,9 @@ class GameSpace:
 						pygame.draw.rect(self.screen,(255,0,0), healthrect, 0)
 					else:
 						pygame.draw.rect(self.screen,(0,255,0), healthrect, 0)
+			for powerup in self.powerups:
+				self.screen.blit(powerup.image, powerup.rect)
+
 			pygame.display.flip()
 
 ##################################################
@@ -121,14 +133,13 @@ class BumperClient(LineReceiver):
 				sys.exit("Game full. Exiting...")
 			self.state = "READY"
 			self.gs = GameSpace(self, self.playernumber)
+			
 		elif (self.state == "READY" and line == "START"):
 			thread.start_new_thread(self.gs.main, ())
 			self.state = "PLAYING"
 		elif (self.state == "PLAYING"):
 			line = line.strip().split(',')
-			print line
 			if line[0] == "PLAYER":
-
 				if (len(self.gs.players) <= int(line[1])):
 					self.gs.players.append(Player(self.gs, int(line[1]), float(line[2]), float(line[3]), float(line[4])))
 				else:
@@ -137,6 +148,13 @@ class BumperClient(LineReceiver):
 					self.gs.players[int(line[1])].angle = float(line[4])
 				self.gs.players[int(line[1])].health = float(line[5])
 				self.gs.players[int(line[1])].maxhealth = float(line[6])
+			elif line[0] == "POWERUP":
+				if line[1] == "NONE":
+					self.gs.powerups = []
+				else:
+					self.gs.powerups.append(Powerup(self.gs, int(line[1]), int(line[2]), int(line[3])))
+		else:
+			print line
 		
 
 class BumperClientFactory(ClientFactory):
